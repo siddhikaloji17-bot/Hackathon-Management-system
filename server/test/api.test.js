@@ -38,12 +38,17 @@ test("team registration rejects bad input before touching the database", async (
     members: [{ name: "A", email: "a@b.co" }],
   };
   assert.equal((await post("/api/teams", { ...good, name: "" })).status, 400);
+  assert.equal((await post("/api/teams", { ...good, name: 7 })).status, 400);
+  assert.equal((await post("/api/teams", { ...good, project: {} })).status, 400);
   assert.equal((await post("/api/teams", { ...good, track: "Nope" })).status, 400);
   assert.equal((await post("/api/teams", { ...good, leaderEmail: "bad" })).status, 400);
+  assert.equal((await post("/api/teams", { ...good, leaderEmail: {} })).status, 400);
   assert.equal((await post("/api/teams", { ...good, members: [] })).status, 400);
   const five = Array.from({ length: 5 }, () => ({ name: "A", email: "a@b.co" }));
   assert.equal((await post("/api/teams", { ...good, members: five })).status, 400);
   assert.equal((await post("/api/teams", { ...good, members: [{ name: "A", email: "x" }] })).status, 400);
+  assert.equal((await post("/api/teams", { ...good, members: [{ name: {}, email: "a@b.co" }] })).status, 400);
+  assert.equal((await post("/api/teams", { ...good, college: [] })).status, 400);
 });
 
 test("protected routes require a login", async () => {

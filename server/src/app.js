@@ -20,9 +20,10 @@ export function createApp() {
   // ---------- Auth ----------
   app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
-    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
-    const ok = user && (await bcrypt.compare(String(password), user.passwordHash));
+    if (typeof email !== "string" || !email.trim() || typeof password !== "string" || !password)
+      return res.status(400).json({ error: "Email and password are required" });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const ok = user && (await bcrypt.compare(password, user.passwordHash));
     if (!ok) return res.status(401).json({ error: "Wrong email or password" });
     res.json({ token: signToken(user), user: { id: user._id, name: user.name, role: user.role } });
   });
@@ -31,13 +32,22 @@ export function createApp() {
   // Public: any team can register.
   app.post("/api/teams", async (req, res) => {
     const { name, project, track, college, leaderEmail, members } = req.body || {};
-    if (!name?.trim() || !project?.trim()) return res.status(400).json({ error: "Team name and project title are required" });
+    if (typeof name !== "string" || !name.trim() || typeof project !== "string" || !project.trim())
+      return res.status(400).json({ error: "Team name and project title are required" });
     if (!TRACKS.includes(track)) return res.status(400).json({ error: "Pick a valid track" });
-    if (!EMAIL_RE.test(String(leaderEmail || ""))) return res.status(400).json({ error: "Enter a valid leader email" });
+    if (typeof leaderEmail !== "string" || !EMAIL_RE.test(leaderEmail.trim()))
+      return res.status(400).json({ error: "Enter a valid leader email" });
+    if (college !== undefined && college !== null && typeof college !== "string")
+      return res.status(400).json({ error: "College / organisation must be text" });
     if (!Array.isArray(members) || members.length < 1 || members.length > 4)
       return res.status(400).json({ error: "A team needs 1 to 4 members" });
     for (const m of members) {
-      if (!m?.name?.trim() || !EMAIL_RE.test(String(m.email || "")))
+      if (
+        typeof m?.name !== "string" ||
+        !m.name.trim() ||
+        typeof m.email !== "string" ||
+        !EMAIL_RE.test(m.email.trim())
+      )
         return res.status(400).json({ error: "Every member needs a name and a valid email" });
     }
     try {
@@ -76,7 +86,14 @@ export function createApp() {
 
   app.post("/api/judges", requireAuth, requireRole("admin"), async (req, res) => {
     const { name, email, password } = req.body || {};
-    if (!name?.trim() || !EMAIL_RE.test(String(email || "")) || String(password || "").length < 8)
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      typeof email !== "string" ||
+      !EMAIL_RE.test(email.trim()) ||
+      typeof password !== "string" ||
+      password.length < 8
+    )
       return res.status(400).json({ error: "Name, valid email and a password of 8+ characters are required" });
     try {
       const passwordHash = await bcrypt.hash(String(password), 10);
@@ -104,6 +121,8 @@ export function createApp() {
   // Submit or update this judge's score for a team.
   app.put("/api/scores/:teamId", requireAuth, requireRole("judge"), async (req, res) => {
     const { scores, comment } = req.body || {};
+    if (comment !== undefined && typeof comment !== "string")
+      return res.status(400).json({ error: "Comment must be text" });
     const problem = validateScores(scores);
     if (problem) return res.status(400).json({ error: problem });
     const team = await Team.findById(req.params.teamId);
